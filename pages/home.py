@@ -40,6 +40,23 @@ def get_manitoba_boundary():
         st.error("Could not fetch Manitoba boundary. Check internet connection.")
         return None
 
+# -------------------------- Manitoba Parks Loading Function --------------------------
+@st.cache_data
+def load_manitoba_parks():
+    """Load Manitoba Parks data from GeoJSON file"""
+    parks_file = "data/Manitoba_Parks_full.geojson"
+    if os.path.exists(parks_file):
+        try:
+            with open(parks_file, "r", encoding="utf-8") as f:
+                parks_data = json.load(f)
+            return parks_data
+        except Exception as e:
+            st.error(f"Error loading Manitoba Parks data: {e}")
+            return None
+    else:
+        st.warning(f"Manitoba Parks file not found: {parks_file}")
+        return None
+
 def add_manitoba_mask(m, manitoba_gdf):
     """Add a mask that covers everything outside Manitoba"""
     if manitoba_gdf is None:
@@ -166,12 +183,11 @@ def create_metric_card_html():
         background: linear-gradient(135deg, #330867 0%, #30cfd0 100%);
     }
     
-    .metric-card.datasource {
-        background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-        color: #333;
+    .metric-card.parks {
+        background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
     }
-    .metric-card.datasource:hover {
-        background: linear-gradient(135deg, #fed6e3 0%, #a8edea 100%);
+    .metric-card.parks:hover {
+        background: linear-gradient(135deg, #a8e063 0%, #56ab2f 100%);
     }
     
     .metric-value {
@@ -194,18 +210,44 @@ def create_metric_card_html():
     </style>
     """
 
+def create_muni_tooltip(feature):
+    """Create custom tooltip content for municipality features"""
+    props = feature.get("properties", {})
+    name = props.get("name", "Unknown")
+    status = props.get("status", "Unknown").lower()
+    
+    # Add emoji based on status
+    if status == "city":
+        emoji = "🏙️"
+        display_status = "City of"
+    elif status == "town":
+        emoji = "🏘️" 
+        display_status = "Town of"
+    elif status in ["rm", "rural municipality", "rural_municipality"]:
+        emoji = "🌾"
+        display_status = "RM of"
+    else:
+        emoji = "🏛️"
+        display_status = status.title()
+    
+    return f"{emoji} {display_status} {name}"
+
 def home_page():
     """Main function for the Home Page - called by st.Page"""
     
-    st.title("Manitoba Cities/Towns + Wildfires & Floods")
-    st.caption("Click municipal polygons for details • Wildfire/Flood markers (local SVGs) • Incident polygons from a separate file")
-
+    st.title("Welcome, to the Manitoba Wildfires & Floods Dashboard")
+    st.caption("Click the municipal polygons for details on the selected municipality. Click the wildfire/flood markers markers for details about the selected incident. And click the Incident Manitoba Parks polygons for details about each park.")
+    st.caption("The dashboard updates in real-time, in light of new information.")
     # Add custom CSS for metric cards
     st.markdown(create_metric_card_html(), unsafe_allow_html=True)
 
     # -------------------------- Load Manitoba Boundary --------------------------
     with st.spinner("Loading Manitoba boundary..."):
         manitoba_boundary = get_manitoba_boundary()
+
+    # -------------------------- Load Manitoba Parks --------------------------
+    with st.spinner("Loading Manitoba Parks data..."):
+        parks_data = load_manitoba_parks()
 
     # -------------------------- Sidebar: Municipality Info --------------------------
     with st.sidebar:
@@ -288,6 +330,12 @@ def home_page():
         # Map Display options
         st.header("🗺️ Map Display")
         show_mask = st.checkbox("Show Manitoba Focus Mask", value=True, help="Adds a gray overlay outside Manitoba province")
+        show_parks = st.checkbox("Show Manitoba Parks", value=True, help="Display provincial park boundaries")
+        
+        # Parks display options (only show if parks are enabled and data is available)
+        # if show_parks and parks_data:
+        #     st.subheader("🌲 Parks Display Options")
+        #     park_opacity = st.slider("Park Fill Opacity", min_value=0.0, max_value=1.0, value=0.3, step=0.1)
 
     # -------------------------- Main Content Area --------------------------
     
@@ -298,10 +346,10 @@ def home_page():
     total_pop = sum(f["properties"].get("population_2021", 0) for f in muni_filtered if isinstance(f["properties"].get("population_2021"), (int, float)))
     wf_count = len(wf_features) if show_wf else 0
     fl_count = len(fl_features) if show_fl else 0
-    source_label = "Default" if st.session_state.incidents_source == "default" else "Merged"
+    parks_count = len(parks_data.get("features", [])) if parks_data and show_parks else 0
     
-    # Display beautified metric cards
-    col1, col2, col3, col4, col5 = st.columns(5)
+    # Display beautified metric cards (now with 6 columns for parks)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
     
     with col1:
         st.markdown(f"""
@@ -317,7 +365,7 @@ def home_page():
         <div class="metric-card population">
             <div class="metric-icon">👥</div>
             <div class="metric-value">{total_pop:,}</div>
-            <div class="metric-label">Total Population (2021)</div>
+            <div class="metric-label">Population (2021)</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -341,8 +389,18 @@ def home_page():
     
     with col5:
         st.markdown(f"""
-        <div class="metric-card datasource">
-            <div class="metric-icon">📁</div>
+        <div class="metric-card parks">
+            <div class="metric-icon">🌲</div>
+            <div class="metric-value">{parks_count}</div>
+            <div class="metric-label">Parks</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col6:
+        source_label = "Default" if st.session_state.incidents_source == "default" else "Merged"
+        st.markdown(f"""
+        <div class="metric-card datasource" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333;">
+            <div class="metric-icon">📄</div>
             <div class="metric-value">{source_label}</div>
             <div class="metric-label">Data Source</div>
         </div>
@@ -358,7 +416,7 @@ def home_page():
     flood_svg_icon = load_svg_icon(flood_icon_path, size=(30, 30))
 
     # Create and display the map
-    st.subheader("🔍 Interactive Map")
+    st.subheader("🗺️ Interactive Map")
     
     # Add info about data freshness
     if st.session_state.incidents_source != "default" and 'upload_history' in st.session_state:
@@ -405,29 +463,114 @@ def home_page():
     if show_mask and manitoba_boundary is not None:
         add_manitoba_mask(m, manitoba_boundary)
 
+    # Add Manitoba Parks layer if enabled and data is available
+    if show_parks and parks_data:
+        parks_layer = folium.FeatureGroup(name="Manitoba Parks", show=True)
+        
+        # Style function for parks
+        def park_style_function(feature):
+            return {
+                'fillColor': '#228b22',  # Forest green
+                'color': '#0f5e0f',       # Darker green border
+                'weight': 1.5,
+                'fillOpacity': 0.5,
+                'dashArray': '5, 5'       # Dashed border for distinction
+            }
+        
+        # Create popup content for parks
+        def create_park_popup(properties):
+            # Extract specific park properties from the GeoJSON
+            name = properties.get('NAME_E', 'Unknown Park')
+            location = properties.get('LOC_E', 'N/A')
+            management = properties.get('MGMT_E', 'N/A')
+            owner = properties.get('OWNER_E', 'N/A')
+            park_class = properties.get('PRK_CLSS', 'N/A')
+            url = properties.get('URL', '')
+            
+            # Build HTML popup content
+            popup_html = f"""
+            <div style='font-family: Arial, sans-serif; width: 300px;'>
+                <h4 style='color: #228b22; margin-bottom: 10px;'>🌲 {name}</h4>
+                <table style='width: 100%; border-spacing: 5px;'>
+                    <tr><td style='vertical-align: top;'><b>Province:</b></td><td>{location}</td></tr>
+                    <tr><td style='vertical-align: top;'><b>Management:</b></td><td>{management}</td></tr>
+                    <tr><td style='vertical-align: top;'><b>Owner:</b></td><td>{owner}</td></tr>
+                    <tr><td style='vertical-align: top;'><b>Park Class:</b></td><td>{park_class}</td></tr>
+            """
+            
+            # Add URL if available
+            if url:
+                popup_html += f"""
+                    <tr><td colspan='2' style='padding-top: 10px;'>
+                        <a href='{url}' target='_blank' style='color: #228b22; text-decoration: none;'>
+                            🔗 <b>Visit Park Website</b>
+                        </a>
+                    </td></tr>
+            """
+            
+            popup_html += """
+                </table>
+            </div>
+            """
+            
+            return popup_html
+        
+        # Add each park to the layer
+        for feature in parks_data.get("features", []):
+            properties = feature.get("properties", {})
+            
+            # Create tooltip (simple hover text - just the name)
+            park_name = properties.get('NAME_E', 'Unknown Park')
+            tooltip_text = park_name
+            
+            # Create popup
+            popup_html = create_park_popup(properties)
+            
+            # Add park polygon to map
+            folium.GeoJson(
+                feature,
+                style_function=park_style_function,
+                highlight_function=lambda x: {
+                    'weight': 3,
+                    'color': '#0f5e0f',
+                    'fillOpacity': 0.7
+                },
+                tooltip=folium.Tooltip(tooltip_text),
+                popup=folium.Popup(popup_html, max_width=300)
+            ).add_to(parks_layer)
+        
+        parks_layer.add_to(m)
+
     # Add municipalities layer only if there are filtered municipalities
     if len(muni_filtered) > 0:
-        muni_popup = folium.GeoJsonPopup(
-            fields=["name", "status", "population_2021"],
-            aliases=["Name", "Status", "Population (2021)"],
-            localize=True,
-            labels=True,
-            style="background-color:white; font-size:14px;"
-        )
-        muni_tooltip = folium.GeoJsonTooltip(
-            fields=["name", "status", "population_2021"],
-            aliases=["Name", "Status", "Population (2021)"],
-            localize=True,
-            sticky=False,
-        )
-        folium.GeoJson(
-            {"type": "FeatureCollection", "features": muni_filtered},
-            name="Municipal Boundaries",
-            style_function=make_muni_style,
-            tooltip=muni_tooltip,
-            popup=muni_popup,
-            highlight_function=lambda x: {"weight": 3},
-        ).add_to(m)
+        # Create a feature group for municipalities
+        muni_layer = folium.FeatureGroup(name="Municipal Boundaries", show=True)
+        
+        # Add each municipality individually to have custom tooltips
+        for feature in muni_filtered:
+            tooltip_text = create_muni_tooltip(feature)
+            props = feature.get("properties", {})
+            
+            # Create individual popup for this feature
+            popup_html = f"""
+            <div style='font-family: Arial, sans-serif;'>
+                <table style='border-spacing: 5px;'>
+                    <tr><td><b>Name:</b></td><td>{props.get('name', 'Unknown')}</td></tr>
+                    <tr><td><b>Status:</b></td><td>{props.get('status', 'Unknown')}</td></tr>
+                    <tr><td><b>Population (2021):</b></td><td>{props.get('population_2021', 'N/A')}</td></tr>
+                </table>
+            </div>
+            """
+            
+            folium.GeoJson(
+                feature,
+                style_function=make_muni_style,
+                tooltip=folium.Tooltip(tooltip_text),
+                popup=folium.Popup(popup_html, max_width=250),
+                highlight_function=lambda x: {"weight": 3},
+            ).add_to(muni_layer)
+        
+        muni_layer.add_to(m)
 
     # Add wildfire markers
     if show_wf:
@@ -520,3 +663,8 @@ def home_page():
     
     if not show_wf and not show_fl:
         st.warning("⚠️ Both wildfire and flood displays are disabled. Enable at least one in the sidebar to see incident data.")
+    
+    if show_parks and not parks_data:
+        st.warning("⚠️ Manitoba Parks data could not be loaded. Check if 'data/Manitoba_Parks_full.geojson' exists.")
+    elif show_parks and parks_data and len(parks_data.get("features", [])) == 0:
+        st.warning("⚠️ No park features found in the Manitoba Parks data file.")
