@@ -1,0 +1,109 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "wildfire",
+        "name": "WF-Red River North",
+        "status": "confirmed",
+        "started_at": "2025-08-10T14:00:00Z",
+        "description": "Active wildfire with visible smoke; crews dispatched."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-96.784899, 50.29958],
+            [-96.73628, 50.229178],
+            [-96.758842, 50.13933],
+            [-96.858196, 50.13024],
+            [-96.897342, 50.197927],
+            [-96.889494, 50.255862],
+            [-96.843629, 50.303666],
+            [-96.784899, 50.29958]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "wildfire",
+        "name": "WF-Lake Winnipeg West",
+        "status": "suspected",
+        "started_at": "2025-08-15T09:30:00Z",
+        "description": "Satellite detection suggests possible fire; verification pending."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-97.424369, 51.01878],
+            [-97.443657, 50.961921],
+            [-97.497978, 50.929035],
+            [-97.558834, 50.930534],
+            [-97.591407, 50.970998],
+            [-97.583982, 51.019261],
+            [-97.524334, 51.053483],
+            [-97.458772, 51.051915],
+            [-97.424369, 51.01878]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "flood",
+        "name": "FL-Assiniboine Lowlands",
+        "status": "confirmed",
+        "started_at": "2025-08-12T06:00:00Z",
+        "description": "River levels above banks; localized overland flooding."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-98.265723, 49.990275],
+            [-98.308862, 49.936473],
+            [-98.378474, 49.88351],
+            [-98.470533, 49.883851],
+            [-98.521119, 49.928878],
+            [-98.539635, 49.986558],
+            [-98.506606, 50.0437],
+            [-98.420476, 50.074548],
+            [-98.332067, 50.064637],
+            [-98.275298, 50.028948],
+            [-98.265723, 49.990275]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "flood",
+        "name": "FL-Interlake Marsh",
+        "status": "suspected",
+        "started_at": "2025-08-14T11:15:00Z",
+        "description": "Reports of pooled water; assessment team en route."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-96.922894, 50.820206],
+            [-96.958266, 50.750996],
+            [-97.023556, 50.714937],
+            [-97.073762, 50.723066],
+            [-97.091302, 50.777949],
+            [-97.04933, 50.831266],
+            [-96.986431, 50.84407],
+            [-96.922894, 50.820206]
+          ]
+        ]
+      }
+    }
+  ]
+}

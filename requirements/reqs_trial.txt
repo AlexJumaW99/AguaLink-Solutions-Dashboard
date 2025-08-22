@@ -1,0 +1,6 @@
+streamlit
+folium
+streamlit-folium
+osmnx>=2.0.0
+networkx>=2.8
+shapely
